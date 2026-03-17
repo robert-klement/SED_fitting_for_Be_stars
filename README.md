@@ -15,3 +15,7 @@ This repository contains scripts and data used to assemble and plot the spectral
 ```bash
 python plot_SED.py omeOri
 ```
+
+## Example output
+
+![omeOri SED example](omeOri/omeOri_SED.png)
