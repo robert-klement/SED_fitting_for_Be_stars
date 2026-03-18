@@ -1,6 +1,6 @@
 # SED Compiling and Fitting for Be Stars
 
-This repository contains scripts and data used to assemble and plot the spectral energy distribution (SED) of Be stars and fit the IR SED slope (to be updated with the radio slope soon). It is based on the scripts originally written for the Be star SED paper by Klement et al. (2019).
+This repository contains scripts and data used to assemble and plot the spectral energy distribution (SED) of Be stars and fit the IR and radio SED slopes. It is based on the scripts originally written for the Be star SED paper by Klement et al. (2019).
 
 ## What is included
 
@@ -13,10 +13,10 @@ This repository contains scripts and data used to assemble and plot the spectral
 ## Quick run
 
 ```bash
-python plot_SED.py omeOri
+python plot_SED.py betCMi
 ```
 It is probably better to modify inputs within the script and use a Python IDE, which is how I use it.
 
 ## Example output
 
-![omeOri SED example](omeOri/omeOri_SED.png)
+![omeOri SED example](betCMi/betCMi_SED.png)
