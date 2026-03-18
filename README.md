@@ -19,4 +19,4 @@ It is probably better to modify inputs within the script and use a Python IDE, w
 
 ## Example output
 
-![omeOri SED example](betCMi/betCMi_SED.png)
+![SED example](betCMi/betCMi_SED.png)
