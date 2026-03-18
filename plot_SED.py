@@ -4,9 +4,12 @@
 Expected input format per line in ``{star}/{star}_photometry_manual.dat``:
     wavelength_um  flux_jy  flux_err_jy  label  [optional extra tokens...]
 
-You can add radio measurements if available - use label `radio'
+For radio measurements, prefer direct survey labels in column 4
+(e.g., ``laboca``, ``vla``, ``jvla``). Legacy ``radio <dataset>``
+and ``radio_upper <dataset>`` rows are also supported.
 
-Any trailing tokens after ``label`` are ignored (e.g., quality flags).
+Trailing tokens after ``label`` are ignored except for legacy
+``radio`` rows, where the next token is treated as the dataset label.
 """
 
 from __future__ import annotations
@@ -17,6 +20,8 @@ from typing import Dict, List, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.container import ErrorbarContainer
+from matplotlib.legend_handler import HandlerErrorbar
 
 try:
     from auxiliary_vieira_et_al_2015_eq20 import calc_n
@@ -27,20 +32,33 @@ except Exception:
 #
 # USER CONFIG (edit these in-script if you prefer not passing CLI args)
 #
-starlist = ('HD44637', '10CMa', '20Vul', '25Vul', '25Peg', '120Tau', 'epsPsA', 'HR2249',\
-            'omeOri', 'upsCyg', 'zetCrv')
-# starlist = ('betCMi',)
+# starlist = ('HD44637', '10CMa', '20Vul', '25Vul', '25Peg', '120Tau', 'epsPsA', 'HR2249',\
+#             'omeOri', 'upsCyg', 'zetCrv')
+starlist = ('betCMi',)
 photometry_file = "{star}/{star}_photometry.dat"
 plot_file = "{star}/{star}_SED.png"
 iue_avg_file = "{star}/{star}_iue_average_jy.dat"
 hpol_avg_file = "{star}/{star}_hpol_average_jy.dat"
 ebv = 0.1
 rv = 3.1
-fit_ir = True
-ir_fit_wavelength_min_um = 3.0
-ir_fit_wavelength_max_um = 65.0
 
-label_order = ["simbad", "dougherty+1991", "iras", "wise", "akari", "radio"]
+ir_fit_wavelength_min_um = 8.0
+ir_fit_wavelength_max_um = 100.0
+
+radio_fit_wavelength_min_cm = 0.08
+radio_fit_wavelength_max_cm = 15
+
+# Dotted-line extrapolation range for IR fit [um].
+# Set to None to auto-use fitted-data limits.
+ir_fit_plot_wavelength_min_um = ir_fit_wavelength_min_um
+ir_fit_plot_wavelength_max_um = ir_fit_wavelength_max_um
+
+# Dotted-line extrapolation range for Radio fit [um].
+# Set to None to auto-use fitted-data limits.
+radio_fit_plot_wavelength_min_um = 500.0
+radio_fit_plot_wavelength_max_um = radio_fit_wavelength_max_cm * 1.0e4
+
+label_order = ["simbad", "dougherty+1991", "iras", "wise", "akari", "laboca", "wendker+2000", "waters+1991", "karma", "vla", "jvla"]
 
 # label -> (legend_label, marker, color)
 styles = {
@@ -49,7 +67,12 @@ styles = {
     "iras": ("IRAS", "x", "tab:red"),
     "wise": ("WISE", "s", "tab:orange"),
     "akari": ("AKARI", "v", "tab:purple"),
-    "radio": ("Radio", "D", "tab:brown"),
+    "laboca": ("APEX/LABOCA", "D", "tab:brown"),
+    "wendker+2000": ("30-m Pico Veleta", "P", "tab:pink"),
+    "waters+1991": ("JCMT", "X", "tab:cyan"),
+    "karma": ("CARMA", "*", "tab:olive"),
+    "vla": ("VLA", "<", "tab:gray"),
+    "jvla": ("JVLA", ">", "k"),
 }
 
 
@@ -171,6 +194,13 @@ def load_photometry(path: Path) -> Tuple[Dict[str, np.ndarray], Dict[str, np.nda
             if label.endswith("_upper"):
                 label = label[: -len("_upper")]
                 target = upper_raw
+
+            # Support compact radio notation:
+            # wl flux err radio <dataset> [optional notes...]
+            if label == "radio" and len(parts) >= 5:
+                radio_label = parts[4].strip().lower().strip("()[]{}.,;:")
+                if radio_label:
+                    label = radio_label
 
             target.setdefault(label, []).append((wl_um, flux_jy, err_jy))
 
@@ -313,6 +343,22 @@ def collect_ir_points(detections: Dict[str, np.ndarray]) -> Tuple[np.ndarray, np
     return wav, flux_fnu, err_fnu
 
 
+def collect_radio_points(detections: Dict[str, np.ndarray]) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Collect candidate points for radio slope fit from all detections."""
+    chunks = [arr for arr in detections.values() if len(arr) > 0]
+    if not chunks:
+        return np.array([]), np.array([]), np.array([])
+
+    arr = np.vstack(chunks)
+    order = np.argsort(arr[:, 0])
+    arr = arr[order]
+
+    wav = arr[:, 0]
+    flux_fnu = arr[:, 1] * 1e-23
+    err_fnu = arr[:, 2] * 1e-23
+    return wav, flux_fnu, err_fnu
+
+
 def plot_single_star(
     star: str,
     phot_path: Path,
@@ -320,6 +366,9 @@ def plot_single_star(
     ebv: float,
     rv: float,
     fit_ir: bool,
+    fit_radio: bool,
+    radio_fit_min_cm: float | None,
+    radio_fit_max_cm: float | None,
 ) -> None:
     detections, upper_limits = load_photometry(phot_path)
     show_observed = ebv > 0
@@ -335,6 +384,20 @@ def plot_single_star(
     ax.set_yscale("log")
     # ax.grid(False, which="both", ls=":", lw=0.6, alpha=0.6)
     ax.tick_params(axis="both", which="major", labelsize=11)
+
+    def add_fit_interval_lines(min_um: float | None, max_um: float | None, color: str) -> None:
+        """Draw faint vertical lines that mark fitting-interval boundaries."""
+        line_kwargs = dict(color=color, ls=":", lw=0.8, alpha=0.22, zorder=0)
+        if min_um is not None and np.isfinite(min_um) and min_um > 0:
+            ax.axvline(min_um, **line_kwargs)
+        if max_um is not None and np.isfinite(max_um) and max_um > 0:
+            if min_um is None or not np.isclose(min_um, max_um):
+                ax.axvline(max_um, **line_kwargs)
+
+    add_fit_interval_lines(ir_fit_wavelength_min_um, ir_fit_wavelength_max_um, "0.35")
+    radio_min_um = None if radio_fit_min_cm is None else radio_fit_min_cm * 1.0e4
+    radio_max_um = None if radio_fit_max_cm is None else radio_fit_max_cm * 1.0e4
+    add_fit_interval_lines(radio_min_um, radio_max_um, "0.15")
 
     labels = ordered_labels(detections, upper_limits)
 
@@ -440,6 +503,7 @@ def plot_single_star(
         all_x.append(x)
         all_y.append(y)
 
+    ir_fit_text = None
     if fit_ir:
         wav_ir, flux_ir, err_ir = collect_ir_points(detections)
         mask_ir = np.isfinite(wav_ir)
@@ -455,29 +519,87 @@ def plot_single_star(
             err_ir = deredden_fnu(wav_ir, err_ir, ebv=ebv, rv=rv)
             try:
                 amplitude, slope = fit_power_law_loglog(wav_ir, flux_ir, err_ir)
-                xfit = np.geomspace(max(0.2, np.nanmin(wav_ir) * 0.9), np.nanmax(wav_ir) * 1.1, 200)
+                xfit_min = max(0.2, np.nanmin(wav_ir) * 0.9)
+                xfit_max = np.nanmax(wav_ir) * 1.1
+                if ir_fit_plot_wavelength_min_um is not None:
+                    xfit_min = max(0.2, ir_fit_plot_wavelength_min_um)
+                if ir_fit_plot_wavelength_max_um is not None:
+                    xfit_max = ir_fit_plot_wavelength_max_um
+                if xfit_max <= xfit_min:
+                    raise ValueError(
+                        f"Invalid IR extrapolation range: min={xfit_min} um, max={xfit_max} um"
+                    )
+                xfit = np.geomspace(xfit_min, xfit_max, 300)
                 yfit = amplitude * xfit**slope
-                ax.plot(xfit, yfit, color="0.35", ls=":", lw=1.2, label="IR fit")
+                ax.plot(xfit, yfit, color="0.35", ls=":", lw=1.2, label="_nolegend_")
 
                 kappa_display = abs(-slope)
-                txt = f"IR kappa = {kappa_display:.2f}"
+                txt = f"$\kappa$ (IR) = {kappa_display:.2f}"
                 if calc_n is not None:
                     try:
                         n_val = float(np.asarray(calc_n(-slope + 2.0, 15))[2])
                         txt += f", n ≃ {abs(n_val):.2f}"
                     except Exception:
                         pass
-                ax.text(0.02, 0.03, txt, transform=ax.transAxes, fontsize=10)
+                ir_fit_text = txt
                 print(f"{star}: IR fit kappa={kappa_display:.3f}")
             except Exception as exc:
                 print(f"{star}: IR fit skipped ({exc})")
 
+    radio_fit_text = None
+    if fit_radio:
+        wav_radio, flux_radio, err_radio = collect_radio_points(detections)
+        mask_radio = np.isfinite(wav_radio)
+        if radio_fit_min_cm is not None:
+            mask_radio &= wav_radio >= (radio_fit_min_cm * 1.0e4)
+        if radio_fit_max_cm is not None:
+            mask_radio &= wav_radio <= (radio_fit_max_cm * 1.0e4)
+        wav_radio = wav_radio[mask_radio]
+        flux_radio = flux_radio[mask_radio]
+        err_radio = err_radio[mask_radio]
+        if wav_radio.size >= 2:
+            flux_radio = deredden_fnu(wav_radio, flux_radio, ebv=ebv, rv=rv)
+            err_radio = deredden_fnu(wav_radio, err_radio, ebv=ebv, rv=rv)
+            try:
+                amplitude, slope = fit_power_law_loglog(wav_radio, flux_radio, err_radio)
+                xfit_min = max(0.2, np.nanmin(wav_radio) * 0.9)
+                xfit_max = np.nanmax(wav_radio) * 1.1
+                if radio_fit_plot_wavelength_min_um is not None:
+                    xfit_min = max(0.2, radio_fit_plot_wavelength_min_um)
+                if radio_fit_plot_wavelength_max_um is not None:
+                    xfit_max = radio_fit_plot_wavelength_max_um
+                if xfit_max <= xfit_min:
+                    raise ValueError(
+                        f"Invalid Radio extrapolation range: min={xfit_min} um, max={xfit_max} um"
+                    )
+                xfit = np.geomspace(xfit_min, xfit_max, 300)
+                yfit = amplitude * xfit**slope
+                ax.plot(xfit, yfit, color="0.15", ls=":", lw=1.2, label="_nolegend_")
+
+                kappa_display = abs(-slope)
+                txt = f"$\kappa$ (Radio) = {kappa_display:.2f}"
+                if calc_n is not None:
+                    try:
+                        n_val = float(np.asarray(calc_n(-slope + 2.0, 15))[2])
+                        txt += f", n ≃ {abs(n_val):.2f}"
+                    except Exception:
+                        pass
+                radio_fit_text = txt
+                print(f"{star}: radio fit kappa={kappa_display:.3f}")
+            except Exception as exc:
+                print(f"{star}: radio fit skipped ({exc})")
+
     formula_text = r"$F_{\nu} \propto \lambda^{-\kappa},\ \rho \propto \rho_0^{-n}$"
-    ax.text(0.02, 0.09, formula_text, transform=ax.transAxes, fontsize=10)
+    ax.text(0.02, 0.13, formula_text, transform=ax.transAxes, fontsize=8)
+    if ir_fit_text is not None:
+        ax.text(0.02, 0.07, ir_fit_text, transform=ax.transAxes, fontsize=8)
+    if radio_fit_text is not None:
+        radio_text_y = 0.02 if ir_fit_text is not None else 0.05
+        ax.text(0.02, radio_text_y, radio_fit_text, transform=ax.transAxes, fontsize=8)
     if ebv > 0:
         ax.text(
             0.02,
-            0.15,
+            0.17,
             f"E(B-V) = {ebv:.2f}",
             transform=ax.transAxes,
             fontsize=8,
@@ -493,10 +615,28 @@ def plot_single_star(
         y_min = np.nanmin(y_all[y_all > 0])
         y_max = np.nanmax(y_all[y_all > 0])
 
+        interval_bounds = [
+            ir_fit_wavelength_min_um,
+            ir_fit_wavelength_max_um,
+            radio_min_um,
+            radio_max_um,
+        ]
+        interval_bounds = [
+            val for val in interval_bounds if val is not None and np.isfinite(val) and val > 0
+        ]
+        if interval_bounds:
+            x_min = min(x_min, min(interval_bounds))
+            x_max = max(x_max, max(interval_bounds))
+
         ax.set_xlim(max(0.08, x_min / 2.0), x_max * 2.0)
         ax.set_ylim(y_min / 2.5, y_max * 2.5)
 
-    ax.legend(fontsize=9, ncol=2, numpoints=1)
+    ax.legend(
+        fontsize=9,
+        ncol=2,
+        numpoints=1,
+        handler_map={ErrorbarContainer: HandlerErrorbar(xerr_size=0.0, yerr_size=0.0)},
+    )
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     fig.tight_layout()
@@ -532,8 +672,24 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--no-fit-ir",
         action="store_true",
-        default=(not fit_ir),
         help="Disable IR power-law fit.",
+    )
+    parser.add_argument(
+        "--no-fit-radio",
+        action="store_true",
+        help="Disable radio power-law fit.",
+    )
+    parser.add_argument(
+        "--radio-fit-min-cm",
+        type=float,
+        default=radio_fit_wavelength_min_cm,
+        help="Minimum wavelength [cm] for radio fit.",
+    )
+    parser.add_argument(
+        "--radio-fit-max-cm",
+        type=float,
+        default=radio_fit_wavelength_max_cm,
+        help="Maximum wavelength [cm] for radio fit.",
     )
     return parser
 
@@ -556,6 +712,9 @@ def main() -> None:
             ebv=args.ebv,
             rv=args.rv,
             fit_ir=not args.no_fit_ir,
+            fit_radio=not args.no_fit_radio,
+            radio_fit_min_cm=args.radio_fit_min_cm,
+            radio_fit_max_cm=args.radio_fit_max_cm,
         )
 
 

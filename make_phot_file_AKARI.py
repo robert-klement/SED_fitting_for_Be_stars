@@ -6,9 +6,9 @@ import re
 from auxiliary_SED_color_correction_IR_missions import color_corr
 
 
-starlist = ('HD44637', '10CMa', '20Vul', '25Vul', '25Peg', '120Tau', 'epsPsA', 'HR2249',\
-            'omeOri', 'upsCyg', 'zetCrv')
-# starlist = ('betCMi',)
+# starlist = ('HD44637', '10CMa', '20Vul', '25Vul', '25Peg', '120Tau', 'epsPsA', 'HR2249',\
+#             'omeOri', 'upsCyg', 'zetCrv')
+starlist = ('betCMi',)
 
 
 print('[AKARI] Processing {} stars'.format(len(starlist)))

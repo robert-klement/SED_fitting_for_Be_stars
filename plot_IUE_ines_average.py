@@ -11,9 +11,9 @@ import numpy as np
 from PyAstronomy import pyasl
 
 
-starlist = ('HD44637', '10CMa', '20Vul', '25Vul', '25Peg', '120Tau', 'epsPsA', 'HR2249',\
-            'omeOri', 'upsCyg', 'zetCrv')
-# starlist = ('betCMi',)
+# starlist = ('HD44637', '10CMa', '20Vul', '25Vul', '25Peg', '120Tau', 'epsPsA', 'HR2249',\
+#             'omeOri', 'upsCyg', 'zetCrv')
+starlist = ('betCMi',)
 EBV = 0.00
 RV = 2.9
 NBINS = 170

@@ -8,7 +8,7 @@ from auxiliary_SED_convert_mags import convert_johnson_dougherty
 
 # starlist = ('HD44637', '10CMa', '20Vul', '25Vul', '25Peg', '120Tau', 'epsPsA', 'HR2249',\
 #             'omeOri', 'upsCyg', 'zetCrv')
-starlist = ('omeOri',)
+starlist = ('betCMi',)
 
 
 print('[DOUGHERTY] Processing {} stars'.format(len(starlist)))

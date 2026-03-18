@@ -11,9 +11,9 @@ import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
 
-starlist = ('HD44637', '10CMa', '20Vul', '25Vul', '25Peg', '120Tau', 'epsPsA', 'HR2249',\
-            'omeOri', 'upsCyg', 'zetCrv')
-# starlist = ('omeOri',)
+# starlist = ('HD44637', '10CMa', '20Vul', '25Vul', '25Peg', '120Tau', 'epsPsA', 'HR2249',\
+#             'omeOri', 'upsCyg', 'zetCrv')
+starlist = ('betCMi',)
 
 
 def _build_wavelength_axis(header, npts):
