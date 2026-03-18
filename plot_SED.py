@@ -70,6 +70,7 @@ styles = {
     "laboca": ("APEX/LABOCA", "D", "tab:brown"),
     "wendker+2000": ("30-m Pico Veleta", "P", "tab:pink"),
     "waters+1991": ("JCMT", "X", "tab:cyan"),
+    "jcmt": ("JCMT", "X", "tab:cyan"),
     "karma": ("CARMA", "*", "tab:olive"),
     "vla": ("VLA", "<", "tab:gray"),
     "jvla": ("JVLA", ">", "k"),
@@ -632,7 +633,7 @@ def plot_single_star(
         ax.set_ylim(y_min / 2.5, y_max * 2.5)
 
     ax.legend(
-        fontsize=9,
+        fontsize=8,
         ncol=2,
         numpoints=1,
         handler_map={ErrorbarContainer: HandlerErrorbar(xerr_size=0.0, yerr_size=0.0)},
