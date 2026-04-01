@@ -16,11 +16,12 @@ This repository contains scripts and data used to assemble and plot the spectral
 
 ## Quick run
 
-```bash
-python plot_SED.py betCMi
-```
-**It is probably better to modify inputs within the script and use a Python IDE, which is how I use it.**
+**Open each respective script in a Python IDE, modify inputs, and run!**
 
 ## Example output
 
+Including radio data for bet CMi:
 ![SED example](betCMi/betCMi_SED.png)
+
+No radio data available for ome Ori:
+![SED example](omeOri/omeOri_SED.png)
