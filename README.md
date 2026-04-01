@@ -20,8 +20,4 @@ This repository contains scripts and data used to assemble and plot the spectral
 
 ## Example output
 
-Including radio data for bet CMi:
 ![SED example](betCMi/betCMi_SED.png)
-
-No radio data available for ome Ori:
-![SED example](omeOri/omeOri_SED.png)
