@@ -1,0 +1,45 @@
+# Ignore all subdirectories
+*/
+
+# Except these
+!bandpasses/
+!bandpasses/**
+!betCMi/
+!betCMi/**
+
+# Ignore all PNGs except betCMi_SED.png
+*.png
+!betCMi_SED.png
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Jupyter notebooks
+.ipynb_checkpoints/
+*.ipynb
+
+# Virtual environments
+.venv/
+venv/
+env/
+.env
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Distribution / packaging
+*.so
+*.whl
