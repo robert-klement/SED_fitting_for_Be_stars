@@ -32,9 +32,9 @@ except Exception:
 #
 # USER CONFIG (edit these in-script if you prefer not passing CLI args)
 #
-starlist = ('HD44637', '10CMa', '20Vul', '25Vul', '25Peg', '120Tau', 'epsPsA', 'HR2249',\
-            'omeOri', 'upsCyg', 'zetCrv')
-# starlist = ('gamCas',)
+# starlist = ('HD44637', '10CMa', '20Vul', '25Vul', '25Peg', '120Tau', 'epsPsA', 'HR2249',\
+#             'omeOri', 'upsCyg', 'zetCrv')
+starlist = ('betCMi',)
 photometry_file = "{star}/{star}_photometry.dat"
 plot_file = "{star}/{star}_SED.png"
 iue_avg_file = "{star}/{star}_iue_average_jy.dat"
