@@ -17,7 +17,7 @@ def calc_n(alpha_IR, lam):
 
     u = (1 / (g + b)) * ((g1 + 2 * g2 * np.log(lam)) * g + (b1 + 2 * b2 * np.log(lam)) * b)
 
-    # n = (beta * (alpha_IR - 4) + 2 * u - 4) / (2 * alpha_IR - 8)
+    # n = (beta * (alpha_IR - 4) + 2 * u - 4) / (2 * alpha_IR - 8) # BUG IN ORIGINAL PAPER
     n = (beta * (alpha_IR - 4) - 2 * u - 4) / (2 * alpha_IR - 8)
                                                
     return n
